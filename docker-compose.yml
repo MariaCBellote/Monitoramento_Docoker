@@ -1,0 +1,94 @@
+
+
+services:
+  # 1. BANCO DE DADOS (PostgreSQL)
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres_db
+    restart: always
+    environment:
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix_password
+      POSTGRES_DB: zabbix
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  # 2. GERENCIADOR DO BANCO (pgAdmin)
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_ui
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin_password
+    ports:
+      - "8080:80"
+    depends_on:
+      - postgres
+
+  # 3. ZABBIX SERVER & WEB
+  zabbix-server:
+    image: zabbix/zabbix-server-pgsql:ubuntu-6.4-latest
+    container_name: zabbix_server
+    restart: always
+    environment:
+      ZBX_DBTYPE: postgresql
+      DB_SERVER_HOST: postgres
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix_password
+      POSTGRES_DB: zabbix
+    ports:
+      - "10051:10051"
+    depends_on:
+      - postgres
+
+  zabbix-web:
+    image: zabbix/zabbix-web-nginx-pgsql:ubuntu-6.4-latest
+    container_name: zabbix_web
+    restart: always
+    environment:
+      ZBX_DBTYPE: postgresql
+      ZBX_SERVER_HOST: zabbix-server
+      DB_SERVER_HOST: postgres
+      POSTGRES_USER: zabbix
+      POSTGRES_PASSWORD: zabbix_password
+      POSTGRES_DB: zabbix
+    ports:
+      - "8081:8080"
+    depends_on:
+      - postgres
+      - zabbix-server
+
+
+# 3.5 ZABBIX AGENT (Para coletar dados da máquina)
+  zabbix-agent:
+    image: zabbix/zabbix-agent:ubuntu-6.4-latest
+    container_name: zabbix_agent
+    restart: always
+    privileged: true
+    pid: "host"
+    environment:
+      ZBX_HOSTNAME: "Zabbix server"
+      ZBX_SERVER_HOST: "zabbix-server"
+    volumes:
+      - /:/host:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      
+  # 4. DASHBOARDS (Grafana)
+  grafana:
+    image: grafana/grafana-oss:latest
+    container_name: grafana_ui
+    restart: always
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafanadata:/var/lib/grafana
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
+  grafanadata:
