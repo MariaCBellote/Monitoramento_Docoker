@@ -116,6 +116,20 @@ services:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_STOPPED=false
       - DOCKER_API_VERSION=1.44  
+
+  pmm-client:
+    image: percona/pmm-client:2
+    container_name: pmm-client
+    restart: always
+    environment:
+      - PMM_SERVER_SERVER=pmm-server # Conecta diretamente pelo nome do container do PMM Server
+      - PMM_SERVER_USER=admin
+      - PMM_SERVER_PASSWORD=sua_senha_do_pmm
+      - PMM_SERVER_INSECURE_TLS=1
+    networks:
+      - pmm_internal
+    depends_on:
+      - pmm-server
       
   grafana:
     image: grafana/grafana-oss:latest
