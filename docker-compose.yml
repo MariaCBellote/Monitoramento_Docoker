@@ -1,3 +1,5 @@
+version: '3.8'
+# Docker atualizado -> zabbix agent 2, pmm 3 (server e client)
 services:
   postgres:
     image: postgres:15-alpine
@@ -13,12 +15,13 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - zabbix-net
+      - monitoramento-net
 
   pgadmin:
     image: dpage/pgadmin4
     container_name: pgadmin_ui
     restart: always
+    user: "5050:5050"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@admin.com
       PGADMIN_DEFAULT_PASSWORD: admin_password
@@ -29,7 +32,7 @@ services:
     depends_on:
       - postgres
     networks:
-      - zabbix-net
+      - monitoramento-net
 
   zabbix-server:
     image: zabbix/zabbix-server-pgsql:ubuntu-6.4-latest
@@ -48,7 +51,7 @@ services:
     depends_on:
       - postgres
     networks:
-      - zabbix-net
+      - monitoramento-net
 
   zabbix-web:
     image: zabbix/zabbix-web-nginx-pgsql:ubuntu-6.4-latest
@@ -67,10 +70,10 @@ services:
       - postgres
       - zabbix-server
     networks:
-      - zabbix-net
+      - monitoramento-net
 
   zabbix-agent:
-    image: zabbix/zabbix-agent:ubuntu-6.4-latest
+    image: zabbix/zabbix-agent2:ubuntu-6.4-latest
     container_name: zabbix_agent
     restart: always
     privileged: true
@@ -85,19 +88,19 @@ services:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
     networks:
-      - zabbix-net
+      - monitoramento-net
 
   pmm-server:
     image: percona/pmm-server:3
     container_name: pmm-server
     restart: always
     ports:
-      - "443:8443"
+      - "443:443"
+      - "80:80"
     volumes:
       - ./dados_pmm:/srv
     networks:
-      - pmm_internal
-      - pmm_public
+      - monitoramento-net
     labels:
       - "com.centurylinklabs.watchtower.enable=true"
 
@@ -111,26 +114,25 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=false"
     networks:
-      - pmm_public
+      - monitoramento-net
     environment:
       - WATCHTOWER_CLEANUP=true
       - WATCHTOWER_INCLUDE_STOPPED=false
-      - DOCKER_API_VERSION=1.44  
 
   pmm-client:
-    image: percona/pmm-client:2
+    image: percona/pmm-client:3
     container_name: pmm-client
     restart: always
     environment:
-      - PMM_SERVER_SERVER=pmm-server # Conecta diretamente pelo nome do container do PMM Server
-      - PMM_SERVER_USER=admin
-      - PMM_SERVER_PASSWORD=sua_senha_do_pmm
-      - PMM_SERVER_INSECURE_TLS=1
+      - PMM_AGENT_SERVER_ADDRESS=pmm-server:443
+      - PMM_AGENT_SERVER_USERNAME=admin
+      - PMM_AGENT_SERVER_PASSWORD=admin
+      - PMM_AGENT_SERVER_INSECURE_TLS=1
     networks:
-      - pmm_internal
+      - monitoramento-net
     depends_on:
       - pmm-server
-      
+
   grafana:
     image: grafana/grafana-oss:latest
     container_name: grafana_ui
@@ -141,14 +143,11 @@ services:
       - ./dados_grafana:/var/lib/grafana
     depends_on:
       - postgres
+      - zabbix-server
+      - pmm-server
     networks:
-      - zabbix-net
+      - monitoramento-net
 
 networks:
-  zabbix-net:
-    driver: bridge
-  pmm_internal:
-    driver: bridge
-    internal: true
-  pmm_public:
+  monitoramento-net:
     driver: bridge
