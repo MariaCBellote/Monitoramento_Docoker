@@ -127,6 +127,7 @@ services:
       - PMM_AGENT_SERVER_ADDRESS=pmm-server:443
       - PMM_AGENT_SERVER_USERNAME=admin
       - PMM_AGENT_SERVER_PASSWORD=admin
+      # Desativa a verificação TSL do PMM!!!!
       - PMM_AGENT_SERVER_INSECURE_TLS=1
     networks:
       - monitoramento-net
